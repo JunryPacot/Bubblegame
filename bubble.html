@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bubble Popping Game</title>
+  <style>
+    /* CSS Variables for Easy Customization */
+    :root {
+      --bg-color: #08c;
+      --min-game-width: 300px;
+      --timer-duration: 45s;
+      --bubble-size: 60px; /* Base size, will be scaled */
+      --bubble-colors: #f44, #f84, #ff8, #8f8, #8ff, #88f;
+      --bubble-size-scales: 0.5, 0.6, 0.7, 0.8, 0.9, 1;
+      --max-bubbles: 40;
+      --min-animation-duration: 4s;
+      --max-animation-duration: 8s;
+      --font-size-base: 20pt;
+      --font-size-added: 1.1vw;
+      --score-width: 70px;
+    }
+
+    /* Base Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: linear-gradient(to bottom, lighten(var(--bg-color), 20%), var(--bg-color), darken(var(--bg-color), 20%));
+      font-family: 'Lato', sans-serif;
+      position: relative;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .game-container {
+      position: relative;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Timer Styles */
+    .timer {
+      position: absolute;
+      top: 20px;
+      left: 5%;
+      width: 90%;
+      display: flex;
+      align-items: center;
+      font-size: calc(var(--font-size-base) / 2 + var(--font-size-added));
+      z-index: 2;
+    }
+
+    .time-left {
+      background: #fff;
+      height: 15px;
+      margin-left: 15px;
+      opacity: 0.8;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      border-radius: 7.5px;
+    }
+
+    .time-left span {
+      display: block;
+      background: #c00;
+      height: 100%;
+      width: 100%;
+      animation: timer var(--timer-duration) linear forwards;
+    }
+
+    /* Score Styles */
+    .score {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: var(--score-width);
+      font-size: calc(var(--font-size-base) * 1.5 + var(--font-size-added));
+      text-align: center;
+      z-index: 2;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    /* Intro Text */
+    .intro {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      text-align: center;
+      font-size: calc(var(--font-size-base) * 1.5 + var(--font-size-added));
+      color: #fff;
+      text-shadow: 2px 2px 4px #000;
+      z-index: 1;
+      opacity: 0;
+      animation: fadeIn 1s 0.5s forwards;
+    }
+
+    /* Game Over Menu */
+    .menu {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      z-index: 3;
+    }
+
+    .menu.visible {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .menu h1 {
+      color: #fff;
+      font-size: 3em;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px #000;
+    }
+
+    .menu button {
+      background: #fff;
+      color: #000;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .menu button:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    .menu-icon {
+      margin-right: 10px;
+      width: 24px;
+      height: 24px;
+    }
+
+    /* Bubbles Container */
+    .bubbles {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Bubble Styles */
+    .bubble {
+      position: absolute;
+      bottom: -100px; /* Start below the viewport */
+      border-radius: 50%;
+      cursor: pointer;
+      animation: ascend linear forwards;
+      z-index: 1;
+      opacity: 0.8;
+      transition: opacity 0.3s;
+    }
+
+    .bubble:hover {
+      opacity: 1;
+    }
+
+    .bubble-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.7), transparent 70%);
+      box-shadow:
+        inset 0 -3px 5px rgba(255, 255, 255, 0.5),
+        inset 0 3px 5px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .bubble-inner::before {
+      content: "";
+      position: absolute;
+      top: 10%;
+      left: 20%;
+      width: 15%;
+      height: 8%;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      transform: rotate(-30deg);
+    }
+
+    .bubble-inner::after {
+      content: "";
+      position: absolute;
+      top: 15%;
+      left: 15%;
+      width: 70%;
+      height: 70%;
+      background: radial-gradient(circle, rgba(0, 0, 0, 0.1), transparent 70%);
+      border-radius: 50%;
+      transform: scale(1.2);
+      opacity: 0.5;
+    }
+
+    /* Keyframes */
+    @keyframes ascend {
+      from {
+        transform: translateY(0);
+      }
+      to {
+        transform: translateY(-110vh); /* Move beyond the top */
+      }
+    }
+
+    @keyframes shake {
+      0% { transform: scale(1, 1); }
+      33% { transform: scale(1, 1.2); }
+      66% { transform: scale(1.2, 1); }
+      100% { transform: scale(1, 1); }
+    }
+
+    @keyframes pop {
+      from {
+        opacity: 1;
+        transform: scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: scale(1.75);
+      }
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    @keyframes timer {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 600px) {
+      .score {
+        font-size: calc(var(--font-size-base) * 1.2 + var(--font-size-added));
+      }
+
+      .intro {
+        font-size: calc(var(--font-size-base) * 1.2 + var(--font-size-added));
+      }
+
+      .menu h1 {
+        font-size: 2.5em;
+      }
+
+      .menu button {
+        font-size: 0.9em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <!-- Timer -->
+    <div class="timer">
+      Time
+      <div class="time-left">
+        <span></span>
+      </div>
+    </div>
+
+    <!-- Score -->
+    <div class="score">0</div>
+
+    <!-- Intro Text -->
+    <div class="intro">Pop as many bubbles as you can!</div>
+
+    <!-- Bubbles Container -->
+    <div class="bubbles"></div>
+
+    <!-- Game Over Menu -->
+    <div class="menu">
+      <h1>Game Over</h1>
+      <button id="play-again-button">
+        <svg class="menu-icon" viewBox="0 0 24 24">
+          <path vector-effect="non-scaling-stroke" fill="#000000" d="M2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2A10,10 0 0,0 2,12M4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12M10,17L15,12L10,7V17Z"></path>
+        </svg>
+        Play Again
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Game Configuration
+    const maxBubbles = 40;
+    const bubbleColors = ['#f44', '#f84', '#ff8', '#8f8', '#8ff', '#88f'];
+    const bubbleSizeScales = [0.5, 0.6, 0.7, 0.8, 0.9, 1];
+    const minAnimationDuration = 4; // seconds
+    const maxAnimationDuration = 8; // seconds
+    const timerDuration = 45; // seconds
+
+    let score = 0;
+    let timeLeft = timerDuration;
+    let timerInterval;
+    let bubbles = [];
+
+    const bubblesContainer = document.querySelector('.bubbles');
+    const scoreDisplay = document.querySelector('.score');
+    const timeLeftDisplay = document.querySelector('.time-left span');
+    const menu = document.querySelector('.menu');
+    const playAgainButton = document.getElementById('play-again-button');
+    const intro = document.querySelector('.intro');
+
+    // Initialize Game
+    function initGame() {
+      // Reset variables
+      score = 0;
+      timeLeft = timerDuration;
+      scoreDisplay.textContent = score;
+      timeLeftDisplay.style.width = '100%';
+      menu.classList.remove('visible');
+      intro.style.display = 'block';
+      
+      // Remove existing bubbles
+      bubblesContainer.innerHTML = '';
+      bubbles = [];
+
+      // Create bubbles
+      for (let i = 0; i < maxBubbles; i++) {
+        const bubble = createBubble(i);
+        bubblesContainer.appendChild(bubble.element);
+        bubbles.push(bubble);
+      }
+
+      // Start Timer after Intro
+      setTimeout(() => {
+        intro.style.display = 'none';
+        startTimer();
+        bubbles.forEach(bubble => bubble.start());
+      }, 2000); // 2 seconds intro
+    }
+
+    // Create a Bubble
+    function createBubble(index) {
+      const bubble = document.createElement('div');
+      bubble.classList.add('bubble');
+
+      // Randomly select color and size scale
+      const colorIndex = index % bubbleColors.length;
+      const color = bubbleColors[colorIndex];
+      const sizeScale = bubbleSizeScales[colorIndex];
+      const size = `${60 * sizeScale}px`; // Base size is 60px
+
+      // Apply styles
+      bubble.style.width = size;
+      bubble.style.height = size;
+      bubble.style.background = color;
+
+      // Random horizontal position (0% to 90%)
+      const left = Math.random() * 90;
+      bubble.style.left = `${left}%`;
+
+      // Random animation duration between min and max
+      const duration = Math.random() * (maxAnimationDuration - minAnimationDuration) + minAnimationDuration;
+      bubble.style.animationDuration = `${duration}s`;
+
+      // Random animation delay within the timer duration
+      const delay = Math.random() * timerDuration;
+      bubble.style.animationDelay = `${delay}s`;
+
+      // Bubble Inner
+      const bubbleInner = document.createElement('div');
+      bubbleInner.classList.add('bubble-inner');
+      bubble.appendChild(bubbleInner);
+
+      // Click and Touch Events to Pop
+      bubble.addEventListener('click', popBubble);
+      bubble.addEventListener('touchstart', popBubble);
+
+      // Animation End Event
+      bubble.addEventListener('animationend', () => {
+        // If bubble reaches the top without being popped, remove it
+        bubble.remove();
+      });
+
+      return { element: bubble, popped: false };
+    }
+
+    // Pop Bubble
+    function popBubble(event) {
+      const bubble = event.currentTarget;
+      if (!bubble.classList.contains('popped')) {
+        bubble.classList.add('popped');
+        bubble.querySelector('.bubble-inner').style.animation = 'pop 0.3s forwards';
+        score++;
+        scoreDisplay.textContent = score;
+
+        // Remove bubble after pop animation
+        bubble.addEventListener('animationend', () => {
+          bubble.remove();
+        });
+      }
+    }
+
+    // Start Timer
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        const percentage = (timeLeft / timerDuration) * 100;
+        timeLeftDisplay.style.width = `${percentage}%`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          endGame();
+        }
+      }, 1000);
+    }
+
+    // End Game
+    function endGame() {
+      menu.classList.add('visible');
+      // Stop all bubble animations
+      bubbles.forEach(bubble => {
+        bubble.element.style.animationPlayState = 'paused';
+      });
+    }
+
+    // Play Again
+    playAgainButton.addEventListener('click', initGame);
+
+    // Start the game on page load
+    window.onload = initGame;
+  </script>
+</body>
+  </html>
